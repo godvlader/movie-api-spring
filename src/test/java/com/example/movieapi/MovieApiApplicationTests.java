@@ -2,15 +2,13 @@ package com.example.movieapi;
 
 import com.example.movieapi.dto.MovieDTO;
 import com.example.movieapi.model.Movie;
-import com.example.movieapi.service.MovieService;
+import com.fasterxml.jackson.databind.JsonNode;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.http.*;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.hamcrest.Matchers.containsString;
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.hamcrest.Matchers.containsString;
+import static org.springframework.test.util.AssertionErrors.assertNotNull;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -33,8 +31,6 @@ class MovieApiApplicationTests {
 
 	@Autowired
 	private TestRestTemplate restTemplate;
-	@Autowired
-	private MovieService movieService;
 
 	@Autowired
 	private MockMvc mockMvc;
@@ -53,13 +49,36 @@ class MovieApiApplicationTests {
 		assertThat(movies).isNotEmpty(); //there are movies in the database
 	}
 
+	// Test for getting all movies
+	@Test
+	public void testGetAllMoviesHateoasLinks() throws Exception {
+		ResponseEntity<String> response = restTemplate.getForEntity("/movies", String.class);
+		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+		assertThat(response.getBody()).isNotEmpty();
+
+		//JsonNode => navigates the JSON returned by endpoints, verifying the structure and content of the response
+		JsonNode rootNode = objectMapper.readTree(response.getBody());
+		JsonNode moviesList = rootNode.path("_embedded").path("movieDTOList");
+		assertTrue(moviesList.isArray());
+
+		//each movie in the list has a self link
+		for (JsonNode movie : moviesList) {
+			JsonNode selfLink = movie.path("_links").path("self").path("href");
+			assertNotNull(selfLink.asText(), "Self link should not be null");
+		}
+
+		//verify collection's self link
+		JsonNode collectionSelfLink = rootNode.path("_links").path("self").path("href");
+		assertNotNull(collectionSelfLink.asText(), "Collection self link should not be null");
+	}
+
 	// Test for getting movies count
 	@Test
 	public void testGetMoviesCount() throws Exception {
 		ResponseEntity<String> response = restTemplate.getForEntity("/count", String.class);
 		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
 
-		// Extract the count from the response
+		//get the count from the response
 		Map<String, Long> countResponse = objectMapper.readValue(response.getBody(), new TypeReference<>() {
         });
 		assertThat(countResponse).containsKey("number of movies in the database");
@@ -76,7 +95,6 @@ class MovieApiApplicationTests {
 		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
 		assertThat(response.getBody()).isNotNull();
 		assertThat(response.getBody().getTitle()).isEqualTo("Test Movie");
-		// Cleanup if necessary
 	}
 
 	// Test adding a duplicate movie
@@ -127,41 +145,37 @@ class MovieApiApplicationTests {
 		ResponseEntity<String> response = restTemplate.postForEntity("/add", movie, String.class);
 
 		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
-		// Additionally, assert the response body contains a message about the type mismatch
 	}
 
 	// Test updating a movie
 	@Test
 	public void testUpdateMovie() {
-		// 1. Pre-create a movie
+		//creating a new movie
 		Movie preCreatedMovie = new Movie("Original Title", "Original Director", 1990);
 		ResponseEntity<Movie> createResponse = restTemplate.postForEntity("/add", preCreatedMovie, Movie.class);
 		Long movieId = createResponse.getBody().getId();
 
-		// 2. Prepare updated movie details
+		//details which replace the created movie
 		Movie updatedDetails = new Movie("Updated Title", "Updated Director", 1995);
 		HttpHeaders headers = new HttpHeaders();
 		headers.setContentType(MediaType.APPLICATION_JSON);
 		HttpEntity<Movie> requestEntity = new HttpEntity<>(updatedDetails, headers);
 
-		// 3. Make a PUT request to update the movie
+		//update it
 		ResponseEntity<Movie> updateResponse = restTemplate.exchange("/update/" + movieId, HttpMethod.PUT, requestEntity, Movie.class);
 
-		// 4. Verify the response
 		assertThat(updateResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
 		Movie updatedMovie = updateResponse.getBody();
 		assertThat(updatedMovie.getTitle()).isEqualTo("Updated Title");
 		assertThat(updatedMovie.getDirector()).isEqualTo("Updated Director");
 		assertThat(updatedMovie.getYear()).isEqualTo(1995);
 
-		// 5. Fetch the updated movie and verify changes were persisted
+		//refetch to see if it has been done correctly
 		Movie fetchedMovie = restTemplate.getForObject("/movies/" + movieId, Movie.class);
 		assertThat(fetchedMovie.getTitle()).isEqualTo(updatedMovie.getTitle());
 		assertThat(fetchedMovie.getDirector()).isEqualTo(updatedMovie.getDirector());
 		assertThat(fetchedMovie.getYear()).isEqualTo(updatedMovie.getYear());
 
-		// Cleanup if necessary
-		//restTemplate.delete("/delete/" + movieId);
 	}
 
 	// Test deleting a movie
@@ -169,7 +183,7 @@ class MovieApiApplicationTests {
 		Movie movie = new Movie(title, director, year);
 		ResponseEntity<Movie> response = restTemplate.postForEntity("/add", movie, Movie.class);
 
-		// Return the ID of the created movie
+		//returns id of the new movie
 		return Objects.requireNonNull(response.getBody()).getId();
 	}
 
@@ -192,16 +206,15 @@ class MovieApiApplicationTests {
 	//Test delete existent movie
 	@Test
 	public void testDeleteExistingMovie() {
-		// Create a test movie and get its ID
+		//new movie to be deleted
 		Long movieId = createTestMovie("Test Movie", "Test Director", 1999);
 
-		// Now delete the movie
+		//deleting by id
 		restTemplate.delete("/delete/" + movieId);
 
-		// Try to fetch the movie again to verify it's been deleted
+		//refetch to get the error
 		ResponseEntity<String> response = restTemplate.getForEntity("/movies/" + movieId, String.class);
 
-		// Assert that fetching the movie now results in a 404 Not Found
 		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
 	}
 

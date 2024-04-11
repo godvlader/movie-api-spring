@@ -31,6 +31,7 @@ public class MovieController {
     public ResponseEntity<Map<String, Long>> getMoviesCount() {
         long count = movieService.getMoviesCount();
         //explicit mapping for the json structure
+        //singletonMap => map containing only one entry
         Map<String, Long> response = Collections.singletonMap("number of movies in the database", count);
         return ResponseEntity.ok(response);
     }

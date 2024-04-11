@@ -17,18 +17,17 @@ public class Movie {
     @Column(name = "\"year\"")
     private int year;
 
-    public Movie(String title, String director, int year) {
-        this.title = title;
-        this.director = director;
-        this.year = year;
-    }
+    //AllArgsConstructor takes the place of all this => when all class fields are initialized at the object creation
+    //RequiredArgsConstructor => for required and optional fields => enforces initialization (through the constructor) only for required fields
+
+        public Movie(String title, String director, int year) {
+            this.title = title;
+            this.director = director;
+            this.year = year;
+        }
 
     public Long getId() {
         return id;
-    }
-
-    public void setId(Long id) {
-        this.id = id;
     }
 
     public String getTitle() {

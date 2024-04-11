@@ -12,9 +12,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.server.ResponseStatusException;
-import org.springframework.hateoas.server.mvc.WebMvcLinkBuilder;
 import static org.springframework.hateoas.server.mvc.WebMvcLinkBuilder.*;
 
 import java.util.List;
@@ -68,6 +66,7 @@ public class MovieService {
     // POST /movie which has as body a movie and will create that movie
 
     public ResponseEntity<Movie> addMovie(Movie movie) {
+        //should add some input validation normally
         boolean exists = movieRepository.existsByTitleAndDirectorAndYear(movie.getTitle(), movie.getDirector(), movie.getYear());
         if (movie.getTitle() == null || movie.getTitle().trim().isEmpty() ||
                 movie.getDirector() == null || movie.getDirector().trim().isEmpty() ||
@@ -104,8 +103,8 @@ public class MovieService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Movie not found with id: " + id));
 
         //check if it is already in the database
-        boolean exists = movieRepository.existsByTitleAndDirectorAndYearAndId(
-                updatedMovie.getTitle(), updatedMovie.getDirector(), updatedMovie.getYear(), id);
+        boolean exists = movieRepository.existsByTitleAndDirectorAndYear(
+                updatedMovie.getTitle(), updatedMovie.getDirector(), updatedMovie.getYear());
         if (exists) {
             // Log because it doesn't show me the exception in the console
             Logger logger = (Logger) LoggerFactory.getLogger(getClass());
